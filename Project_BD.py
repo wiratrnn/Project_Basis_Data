@@ -492,7 +492,7 @@ def dataset_upload():
     all_tags = ["Kesehatan", "Keuangan", "Pendidikan", "Teknologi", "Sains Data", "Demografi",
                 "Klasifikasi", "Regresi", "Clustering", "Spatial", "Time Series", "Inferensia"]
 
-    with st.form(key="upload_form", clear_on_submit=True):
+    with st.form(key="upload_form"):
         nama_data = st.text_input(
             label="Judul Dataset",
             placeholder="Contoh: Data Penjualan Ritel Selama Pandemi (min. 50 karakter)"
@@ -968,4 +968,5 @@ def main():
             lupa_password()
 
 if __name__ == "__main__":
+
     main()
