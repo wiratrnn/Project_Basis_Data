@@ -307,7 +307,10 @@ def Dashboard():
                             args=(pertanyaan,))
 
 def Datasets():
-    st.title("🎉 Datasets Para AnTik unimed")
+    st.title("🎉 Datasets Para AnTik")
+    st.write("""✨ Di sini kamu bisa menyimpan data apapun itu seperti hasil kuesioner yang dimanipulasi 😂. 
+                Daripada data tugas berakhir dan data dibuang begitu saja, tidak terpakai, lebih baik disimpan di sini,
+                siapa tahu nanti bisa berguna lagi untuk mahasiswa, dosen atau penelitian lain! 📊""")
     col1, col2 = st.columns([6,1])
     col1.markdown("#### Ingin berkontribusi seperti mereka? Unggah data anda disini!")
     with col2:
@@ -970,3 +973,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
