@@ -10,5 +10,5 @@ Proyek ini merupakan aplikasi berbasis **Streamlit** yang berfungsi sebagai temp
 Pertama, clone repo ini ke komputer lokal kamu:
 
 ```bash
-git clone https://github.com/username/nama-repo.git
-cd nama-repo
+git clone https://github.com/wiratrnn/Project_Basis_Data.git
+cd Project_Basis_Data
