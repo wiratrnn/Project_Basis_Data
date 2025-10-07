@@ -312,11 +312,6 @@ def Datasets():
                 atau bahkan hasil dari kuesioner yang dimanipulasi 😂 dan ketika tugas berakhir data tidak dipakai lagi.
                 Daripada data dibuang begitu saja, padahal susah nyari responden atau mencari data dari web yang sesuai untuk tugas kuliah, 
                 lebih baik disimpan di sini, siapa tahu nanti bisa berguna lagi untuk mahasiswa, dosen atau penelitian lain! 📊""")
-    col1, col2 = st.columns([6,1])
-    col1.markdown("#### Ingin berkontribusi seperti mereka? Unggah data anda disini!")
-    with col2:
-        st.write("")
-        st.button(f"**Unggah Data**", type="primary", on_click=go_to, args=('dataset_upload',))
 
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
@@ -366,6 +361,11 @@ def Datasets():
                             key=f"more_{dataset['id']}",
                             on_click=go_to_dataset_more,
                             args=(dataset['id'],))
+    col1, col2 = st.columns([6,1])
+    col1.markdown("#### Ingin berkontribusi seperti mereka? Unggah data disini!")
+        with col2:
+            st.write("")
+            st.button(f"**Unggah Data**", type="primary", on_click=go_to, args=('dataset_upload',))
 
 def Diskusi():
     st.title("Halaman Diskusi Para AnTik 🎉")
@@ -974,5 +974,6 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
