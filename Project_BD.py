@@ -29,7 +29,7 @@ def go_to(page_name):
 
 def hash_password(pw):
     return hashlib.sha256(str.encode(pw)).hexdigest()
-
+    
 # fungsi untuk melihat info selengkapnya
 def go_to_dataset_more(dataset_id):
     st.session_state.page = "dataset_more"
@@ -1017,6 +1017,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
