@@ -537,13 +537,24 @@ def dataset_upload():
                     conn = get_connection()
                     c = conn.cursor()
                     c.execute("""
-                        INSERT INTO datasets (user_id, nama_data, deskripsi, file_path, tags, vote)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (st.session_state.username, nama_data, deskripsi, file_id, ",".join(tags), 0))
+                        INSERT INTO datasets (user_id, nama_data, deskripsi, file_path, vote)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """, (st.session_state.username, nama_data, deskripsi, file_id, 0))
+
+                    dataset_id = c.lastrowid
+                    for tag_name in tags:
+                        c.execute("SELECT id FROM tags WHERE tag_name = %s", (tag_name,))
+                        tag_id = c.fetchone()
+                        c.execute("""
+                            INSERT INTO dataset_tag (dataset_id, tag_id)
+                            VALUES (%s, %s)
+                            """, (dataset_id, tag_id[0]))
                     conn.commit()
                     conn.close()
-                    
                     st.success("✅ Data berhasil disimpan ke database")
+                    time.sleep(3)
+                    go_to('Datasets')
+                    st.rerun()
                 
                 except Exception as e:
                     st.error(f"Terjadi kesalahan saat memproses file: {e}")
@@ -585,7 +596,7 @@ def dataset_update():
         
         st.success("Dataset berhasil diperbarui!")
         del st.session_state.dataset_update
-        st.session_state.page = 'Dashboard'
+        go_to('Dashboard')
         st.rerun()
 
 def dataset_delete():
@@ -981,6 +992,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
