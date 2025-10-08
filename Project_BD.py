@@ -269,7 +269,7 @@ def Dashboard():
             profil = pd.DataFrame([data], columns=columns)
 
 
-	st.title("Dashboard")
+    st.title("Dashboard")
 	st.subheader(f"Selamat datang, {profil['Nama']}! 🎉")
     st.write("👉 Ini adalah halaman profil anda")
 	
@@ -1017,6 +1017,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
