@@ -117,7 +117,7 @@ def register_page():
     def register_check():
         # Fase 1 : validasi ke aturan dasar
         register_rules = [
-            (username > 10,                                     "⚠️ Username maksimal 10 karakter"),
+            (len(username) > 10,                                "⚠️ Username maksimal 10 karakter"),
             (any(char.isdigit() for char in nama),              "⚠️ Nama tidak boleh mengandung angka"),
             (not nama.istitle(),                                "⚠️ Nama harus menggunakan huruf besar di awal tiap kata"),
             (not nama,                                          "⚠️ nama tidak boleh kosong"),
@@ -976,6 +976,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
