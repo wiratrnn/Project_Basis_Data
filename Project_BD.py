@@ -17,6 +17,8 @@ caption = """Selamat datang di website prototype AnTik.
             Mohon diperhatikan bahwa website ini masih dalam tahap pengembangan awal (versi alfa) dan ditujukan untuk keperluan demonstrasi.
             Jadi tolong bagi siapapun yang berkunjung ke website ini, jadi lah dewasa dan gunakan dengan bijak!!!.
         """
+all_tags = ["Kesehatan", "Keuangan", "Pendidikan", "Teknologi", "Sains Data", "Demografi",
+            "Klasifikasi", "Regresi", "Clustering", "Spatial", "Time Series", "Inferensia"]
 
 if 'page' not in st.session_state:
     st.session_state.page = 'Home'
@@ -314,23 +316,54 @@ def Datasets():
                 Daripada data dibuang begitu saja, padahal susah nyari responden atau mencari data dari web yang sesuai untuk tugas kuliah, 
                 lebih baik disimpan di sini, siapa tahu nanti bisa berguna lagi untuk mahasiswa, dosen atau penelitian lain! 📊""")
 
-    with get_connection() as conn:
-        with conn.cursor(dictionary=True) as c:
-            c.execute("""
-                SELECT d.id, d.nama_data, d.deskripsi, d.file_path,d.tanggal, d.vote, u.Nama AS author,
-                GROUP_CONCAT(t.tag_name SEPARATOR ', ') AS tags
-                FROM datasets d
-                LEFT JOIN (
-                    SELECT username, Nama FROM mahasiswa
-                    UNION
-                    SELECT username, Nama FROM dosen
-                ) u ON d.user_id = u.username
-                LEFT JOIN dataset_tag dt ON d.id = dt.dataset_id
-                LEFT JOIN tags t ON t.id = dt.tag_id
-                GROUP BY d.id, d.nama_data, d.deskripsi, d.file_path, d.tanggal, d.vote, u.Nama;
-                """)
-            datasets_all = c.fetchall()
+	colFilter, colJudul, colTag = st.columns(3)
+	cari_filter = colFilter.selectbox("Cari berdasarkan kategori",
+						["default", "Jumlah Like Tertinggi", "Jumlah Like Terendah", "Terbaru Diunggah", "Terlama Diunggah"])
+	cari_judul = colJudul.text_input("Cari berdasarkan nama data")
+	cari_tags = colTag.multiselect(label="Cari berdasarkan tags", options=all_tags, max_selections=3, placeholder="maksimal 3 tag")
+	query = """
+			SELECT d.*, u.Nama AS author, GROUP_CONCAT(t.tag_name) AS tags
+			FROM datasets d
+			LEFT JOIN (
+			    SELECT username, Nama FROM mahasiswa
+			    UNION
+			    SELECT username, Nama FROM dosen
+			) u ON d.user_id = u.username
+			LEFT JOIN dataset_tag dt ON d.id = dt.dataset_id
+			LEFT JOIN tags t ON dt.tag_id = t.id
+			WHERE 1=1
+			"""
+	params = []
+	if cari_judul:
+		query += " AND d.nama_data LIKE %s"
+    	params.append(f"%{cari_judul}%")
 
+	if cari_tags:
+		placeholders = ','.join(['%s'] * len(cari_tags))
+	    query += f" AND t.tag_name IN ({placeholders})"
+	    params.extend(cari_tags)
+
+	if cari_filter != "default":
+	    if cari_filter == "Jumlah Like Tertinggi":
+	        order_by = "d.vote DESC"
+	    elif cari_filter == "Jumlah Like Terendah":
+	        order_by = "d.vote ASC"
+	    elif cari_filter == "Terbaru Diunggah":
+	        order_by = "d.tanggal DESC"
+	    elif cari_filter == "Terlama Diunggah":
+	        order_by = "d.tanggal ASC"
+	    else:
+	        order_by = "d.vote DESC"
+	else:
+	    order_by = "d.vote DESC"
+		
+	query += f" GROUP BY d.id ORDER BY {order_by}"
+
+	with get_connection() as conn:
+	    with conn.cursor(dictionary=True) as c:
+	        c.execute(query, tuple(params))
+	        datasets_all = c.fetchall()
+		
     total_data = len(datasets_all)
     PER_PAGE = 8
     total_pages = total_data // PER_PAGE
@@ -497,11 +530,7 @@ def dataset_upload():
         if not filename.endswith((".csv", ".json", ".xlsx", ".xls")):
             st.error("❌ Format harus csv, json, xlsx atau xls")
             return False
-
         return True
-
-    all_tags = ["Kesehatan", "Keuangan", "Pendidikan", "Teknologi", "Sains Data", "Demografi",
-                "Klasifikasi", "Regresi", "Clustering", "Spatial", "Time Series", "Inferensia"]
 
     with st.form(key="upload_form"):
         nama_data = st.text_input(
@@ -987,6 +1016,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
