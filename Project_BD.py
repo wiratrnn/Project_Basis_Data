@@ -117,6 +117,7 @@ def register_page():
     def register_check():
         # Fase 1 : validasi ke aturan dasar
         register_rules = [
+            (username > 10,                                     "⚠️ Username maksimal 10 karakter"),
             (any(char.isdigit() for char in nama),              "⚠️ Nama tidak boleh mengandung angka"),
             (not nama.istitle(),                                "⚠️ Nama harus menggunakan huruf besar di awal tiap kata"),
             (not nama,                                          "⚠️ nama tidak boleh kosong"),
@@ -170,7 +171,7 @@ def register_page():
         nama = st.text_input(label="Nama", placeholder='huruf awal harus kapital (contoh : Wira Triono)')
         no_id = st.text_input(label = "Nomor Identitas (NIM atau NIP)")
         email = st.text_input(label = "Email", placeholder = "Harus Email Unimed (contoh : xxx@mhs.unimed.ac.id)")
-        username = st.text_input(label = "Username")
+        username = st.text_input(label = "Username", placeholder = "Maksimal 10 karakter")
         password_a = st.text_input(label = "password baru", type = "password")
         password_b = st.text_input(label = "konfirmasi password ", type = "password")
         role = st.selectbox(label = "Mendaftar sebagai", options=["mahasiswa", "dosen"])
@@ -975,6 +976,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
