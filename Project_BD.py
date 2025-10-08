@@ -239,10 +239,6 @@ def Dashboard():
         st.session_state.page = 'Home'
         st.rerun()
 
-    st.title("Dashboard")
-    st.subheader(f"Selamat datang, {st.session_state.username}! 🎉")
-    st.write("👉 Ini adalah halaman profil anda")
-
     # koneksi database > |datasets|users|mahasiswa|dosen|
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
@@ -272,6 +268,10 @@ def Dashboard():
             data = c.fetchone()
             profil = pd.DataFrame([data], columns=columns)
 
+	st.title("Dashboard")
+    st.subheader(f"Selamat datang, {profil['Nama']}! 🎉")
+    st.write("👉 Ini adalah halaman profil anda")
+	
     # Ubah ke format vertikal
     profil_final = profil.melt(var_name="Keterangan", value_name="Isi").set_index("Keterangan")
     st.dataframe(profil_final, use_container_width=True)
@@ -1016,6 +1016,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
