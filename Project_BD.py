@@ -363,9 +363,13 @@ def Datasets():
 
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
-            c.execute(query, tuple(params))
-            datasets_all = c.fetchall()
+            if params:
+                c.execute(query, tuple(params))
+            else:
+                c.execute(query)
 
+            datasets_all = c.fetchall()
+                
     total_data = len(datasets_all)
     PER_PAGE = 8
     total_pages = total_data // PER_PAGE
@@ -1018,3 +1022,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
