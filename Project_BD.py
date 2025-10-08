@@ -406,7 +406,7 @@ def update_dashboard():
     def profil_check():
         profil_rules = [
             (any(char.isdigit() for char in nama),   "Nama tidak boleh mengandung angka"),
-            (not prodi.isupper(),                    "prodi harus berupa huruf besar"),
+            (not prodi.isupper(),                    "Prodi harus berupa huruf besar"),
             (not nama.istitle(),                     "Nama harus menggunakan huruf besar di awal tiap kata")
         ]
 
@@ -614,21 +614,16 @@ def dataset_delete():
                 with conn.cursor() as c:
                     c.execute("DELETE FROM datasets WHERE id=%s", (dataset["id"],))
                     conn.commit()
+                            
+            uploader.destroy(dataset["file_path"])
             st.success(f"Dataset {dataset['nama_data']} berhasil dihapus")
-
-            # Hapus Cloudinary
-            try:
-                uploader.destroy(dataset["file_path"])
-                st.success(f"File {dataset['file_path']} berhasil dihapus dari Cloudinary")
-                time.sleep(3)
-            except Exception as e:
-                st.warning(f"Gagal hapus file di Cloudinary: {e}")
+            time.sleep(3)
         else:
             st.info("Dataset batal dihapus")
 
         # Hapus flag dan Kembali ke Dashboard
         del st.session_state.dataset_delete
-        st.session_state.page = 'Dashboard'
+        go_to('Dashboard')
         st.rerun()
 
 def dataset_more():
@@ -992,6 +987,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
