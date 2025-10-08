@@ -270,7 +270,7 @@ def Dashboard():
 
 
     st.title("Dashboard")
-	st.subheader(f"Selamat datang, {profil['Nama']}! 🎉")
+    st.subheader(f"Selamat datang, {profil['Nama']}! 🎉")
     st.write("👉 Ini adalah halaman profil anda")
 	
     # Ubah ke format vertikal
@@ -310,6 +310,7 @@ def Dashboard():
                             on_click=go_to_pertanyaan_delete,
                             args=(pertanyaan,))
 
+
 def Datasets():
     st.title("🎉 Datasets Para AnTik")
     st.write("""✨ Di sini kamu bisa menyimpan data apapun itu seperti hasil scrapping illegal, hasil menyelam dari website lain,
@@ -317,12 +318,12 @@ def Datasets():
                 Daripada data dibuang begitu saja, padahal susah nyari responden atau mencari data dari web yang sesuai untuk tugas kuliah, 
                 lebih baik disimpan di sini, siapa tahu nanti bisa berguna lagi untuk mahasiswa, dosen atau penelitian lain! 📊""")
 
-	colFilter, colJudul, colTag = st.columns(3)
-	cari_filter = colFilter.selectbox("Cari berdasarkan kategori",
+    colFilter, colJudul, colTag = st.columns(3)
+    cari_filter = colFilter.selectbox("Cari berdasarkan kategori",
 						["default", "Jumlah Like Tertinggi", "Jumlah Like Terendah", "Terbaru Diunggah", "Terlama Diunggah"])
-	cari_judul = colJudul.text_input("Cari berdasarkan nama data")
-	cari_tags = colTag.multiselect(label="Cari berdasarkan tags", options=all_tags, max_selections=3, placeholder="maksimal 3 tag")
-	query = """
+    cari_judul = colJudul.text_input("Cari berdasarkan nama data")
+    cari_tags = colTag.multiselect(label="Cari berdasarkan tags", options=all_tags, max_selections=3, placeholder="maksimal 3 tag")
+    query = """
 			SELECT d.*, u.Nama AS author, GROUP_CONCAT(t.tag_name) AS tags
 			FROM datasets d
 			LEFT JOIN (
@@ -334,37 +335,37 @@ def Datasets():
 			LEFT JOIN tags t ON dt.tag_id = t.id
 			WHERE 1=1
 			"""
-	params = []
-	if cari_judul:
-		query += " AND d.nama_data LIKE %s"
-    	params.append(f"%{cari_judul}%")
+    params = []
+    if cari_judul:
+        query += " AND d.nama_data LIKE %s"
+        params.append(f"%{cari_judul}%")
 
-	if cari_tags:
-		placeholders = ','.join(['%s'] * len(cari_tags))
-	    query += f" AND t.tag_name IN ({placeholders})"
-	    params.extend(cari_tags)
+    if cari_tags:
+        placeholders = ','.join(['%s'] * len(cari_tags))
+        query += f" AND t.tag_name IN ({placeholders})"
+        params.extend(cari_tags)
 
-	if cari_filter != "default":
-	    if cari_filter == "Jumlah Like Tertinggi":
-	        order_by = "d.vote DESC"
-	    elif cari_filter == "Jumlah Like Terendah":
-	        order_by = "d.vote ASC"
-	    elif cari_filter == "Terbaru Diunggah":
-	        order_by = "d.tanggal DESC"
-	    elif cari_filter == "Terlama Diunggah":
-	        order_by = "d.tanggal ASC"
-	    else:
-	        order_by = "d.vote DESC"
-	else:
-	    order_by = "d.vote DESC"
-		
-	query += f" GROUP BY d.id ORDER BY {order_by}"
+    if cari_filter != "default":
+        if cari_filter == "Jumlah Like Tertinggi":
+            order_by = "d.vote DESC"
+        elif cari_filter == "Jumlah Like Terendah":
+            order_by = "d.vote ASC"
+        elif cari_filter == "Terbaru Diunggah":
+            order_by = "d.tanggal DESC"
+        elif cari_filter == "Terlama Diunggah":
+            order_by = "d.tanggal ASC"
+        else:
+            order_by = "d.vote DESC"
+    else:
+        order_by = "d.vote DESC"
 
-	with get_connection() as conn:
-	    with conn.cursor(dictionary=True) as c:
-	        c.execute(query, tuple(params))
-	        datasets_all = c.fetchall()
-		
+    query += f" GROUP BY d.id ORDER BY {order_by}"
+
+    with get_connection() as conn:
+        with conn.cursor(dictionary=True) as c:
+            c.execute(query, tuple(params))
+            datasets_all = c.fetchall()
+
     total_data = len(datasets_all)
     PER_PAGE = 8
     total_pages = total_data // PER_PAGE
@@ -407,6 +408,7 @@ def Datasets():
     with col2:
         st.write("")
         st.button(f"**Unggah Data**", type="primary", on_click=go_to, args=('dataset_upload',))
+
 
 def Diskusi():
     st.title("Halaman Diskusi Para AnTik 🎉")
@@ -516,7 +518,7 @@ def dataset_upload():
         # Fase 1 : validasi ke aturan dasar
         submit_rules = [
             (not nama_data,         "⚠️ Judul Tidak Boleh Kosong"),
-            (len(nama_data) > 50,   " ❌ Judul Maksimal 50 karakter!"),
+            (len(nama_data) > 50,   "❌ Judul Maksimal 50 karakter!"),
             (not deskripsi,         "⚠️ Deskripsi tidak boleh kosong."),
             (file_path is None,     "⚠️ Anda belum mengunggah file dataset."),
             (not tags,              "⚠️ tag harus dipilih minimal 1")
@@ -1015,19 +1017,4 @@ def main():
             lupa_password()
 
 if __name__ == "__main__":
-
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
