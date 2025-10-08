@@ -268,8 +268,9 @@ def Dashboard():
             data = c.fetchone()
             profil = pd.DataFrame([data], columns=columns)
 
+
 	st.title("Dashboard")
-    st.subheader(f"Selamat datang, {profil['Nama']}! 🎉")
+	st.subheader(f"Selamat datang, {profil['Nama']}! 🎉")
     st.write("👉 Ini adalah halaman profil anda")
 	
     # Ubah ke format vertikal
@@ -1016,6 +1017,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
