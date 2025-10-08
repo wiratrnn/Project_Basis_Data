@@ -317,13 +317,18 @@ def Datasets():
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
             c.execute("""
-                SELECT d.*, u.Nama AS author
+                SELECT d.id, d.nama_data, d.deskripsi, d.file_path,d.tanggal, d.vote, u.Nama AS author,
+                GROUP_CONCAT(t.tag_name SEPARATOR ', ') AS tags
                 FROM datasets d
                 LEFT JOIN (
                     SELECT username, Nama FROM mahasiswa
                     UNION
                     SELECT username, Nama FROM dosen
-                ) u ON d.user_id = u.username""")
+                ) u ON d.user_id = u.username
+                LEFT JOIN dataset_tag dt ON d.id = dt.dataset_id
+                LEFT JOIN tags t ON t.id = dt.tag_id
+                GROUP BY d.id, d.nama_data, d.deskripsi, d.file_path, d.tanggal, d.vote, u.Nama;
+                """)
             datasets_all = c.fetchall()
 
     total_data = len(datasets_all)
@@ -976,6 +981,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
