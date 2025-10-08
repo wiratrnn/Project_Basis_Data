@@ -324,7 +324,14 @@ def Datasets():
     cari_judul = colJudul.text_input("Cari berdasarkan nama data")
     cari_tags = colTag.multiselect(label="Cari berdasarkan tags", options=all_tags, max_selections=3, placeholder="maksimal 3 tag")
     query = """
-			SELECT d.*, u.Nama AS author, GROUP_CONCAT(t.tag_name) AS tags
+			SELECT d.id,
+			d.user_id,
+			d.nama_data,
+			d.deskipsi,
+			d.file_path,
+			d.tanggal,
+			d.vote,
+			u.Nama AS author, GROUP_CONCAT(t.tag_name) AS tags
 			FROM datasets d
 			LEFT JOIN (
 			    SELECT username, Nama FROM mahasiswa
@@ -359,7 +366,7 @@ def Datasets():
     else:
         order_by = "d.vote DESC"
 
-    query += f" GROUP BY d.id ORDER BY {order_by}"
+    query += f" GROUP BY d.id, d.user_id, d.nama_data, d.deskripsi, d.file_path, d.tanggal, d.vote ORDER BY {order_by}"
 
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
@@ -1022,4 +1029,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
