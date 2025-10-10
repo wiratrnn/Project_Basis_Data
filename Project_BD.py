@@ -17,8 +17,21 @@ caption = """Selamat datang di website prototype AnTik.
             Mohon diperhatikan bahwa website ini masih dalam tahap pengembangan awal (versi alfa) dan ditujukan untuk keperluan demonstrasi.
             Jadi tolong bagi siapapun yang berkunjung ke website ini, jadi lah dewasa dan gunakan dengan bijak!!!.
         """
+caption2 = """ Selamat Datang ✨ Di sini kamu bisa menyimpan data apapun itu seperti hasil scrapping illegal 👨‍💻, hasil menyelam 🤿 dari website lain,
+            atau bahkan hasil dari kuesioner yang dimanipulasi 😂 dan ketika tugas berakhir data tidak dipakai lagi.
+            Daripada data dibuang begitu saja, padahal susah nyari responden atau mencari data dari web yang sesuai untuk tugas kuliah, 
+            lebih baik disimpan di sini, siapa tahu nanti bisa berguna lagi untuk mahasiswa, dosen atau penelitian lain! 📊
+            <br><br><br> 
+            """
 all_tags = ["Kesehatan", "Keuangan", "Pendidikan", "Teknologi", "Sains Data", "Demografi",
             "Klasifikasi", "Regresi", "Clustering", "Spatial", "Time Series", "Inferensia"]
+order_mapping = {
+    "Penjawab Terbanyak": st.secrets['query']['penjawab_terbanyak'],
+    "Penjawab Terendah": st.secrets['query']['penjawab_terendah'],
+    "Jumlah Like Terbanyak": st.secrets['query']['like_terbanyak'],
+    "Jumlah Like Terendah": st.secrets['query']['like_terendah'],
+    "Terbaru Diunggah": st.secrets['query']['terbaru_diunggah'],
+    "Terlama Diunggah": st.secrets['query']['terlama_diunggah']}
 
 if 'page' not in st.session_state:
     st.session_state.page = 'Home'
@@ -29,11 +42,28 @@ def go_to(page_name):
 
 def hash_password(pw):
     return hashlib.sha256(str.encode(pw)).hexdigest()
-    
+
+def paginate_data(data_list, PER_PAGE=8, container=st):
+    total_data = len(data_list)
+    total_pages = total_data // PER_PAGE
+    if total_data % PER_PAGE != 0:
+        total_pages += 1
+
+    # Pastikan minimal 1 halaman
+    if total_pages == 0:
+        total_pages = 1
+    page = container.number_input(f"Halaman: 1 dari {total_pages} ({PER_PAGE} item per halaman)", min_value=1, max_value=total_pages, value=1, step=1)
+    start_idx = (page - 1) * PER_PAGE
+    end_idx = start_idx + PER_PAGE
+    page_data = data_list[start_idx:end_idx]
+
+    return page_data
+
 # fungsi untuk melihat info selengkapnya
+
 def go_to_dataset_more(dataset_id):
     st.session_state.page = "dataset_more"
-    st.session_state.selected_dataset_id = dataset_id
+    st.session_state.dataset_id = dataset_id
 
 def go_to_komentar(q_id, q_judul):
     st.session_state.page = "komentar_pertanyaan"
@@ -48,11 +78,12 @@ def go_to_dataset_update(dataset):
     st.session_state.dataset_update = dataset
     st.session_state.page = "dataset_update"
 
-def go_to_pertanyaan_delete(q):
-    st.session_state.pertanyaan_delete = q
+def go_to_pertanyaan_delete(pertanyaan):
+    st.session_state.pertanyaan_delete = pertanyaan
     st.session_state.page = 'pertanyaan_delete'
 
 # --- koneksi ke MySQL ---
+
 def get_connection():
     return mysql.connector.connect(
         host=st.secrets["mysql"]["host"],
@@ -76,7 +107,7 @@ def home_page():
 
     with get_connection() as conn:
         with conn.cursor() as c:
-            c.execute("SELECT COUNT(*) FROM users")
+            c.execute(st.secrets['query']['count_users'])
             jumlah = c.fetchone()[0]
             col3.metric("jumlah user aktif", jumlah)
 
@@ -92,25 +123,22 @@ def login_page():
             # koneksi database |users|
             with get_connection() as conn:
                 with conn.cursor() as c:
-                    c.execute("""
-                        SELECT role FROM users 
-                        WHERE username=%s AND password=%s
-                        """,(username, hash_password(password)))
+                    c.execute(st.secrets['query']['login'],
+                              (username, hash_password(password)))
                     result = c.fetchone()
                     if result:
                         st.session_state.logged_in = True
                         st.session_state.username = username
                         st.session_state.role = result[0]
                         st.success("Login berhasil!")
-                        time.sleep(3)
                         st.session_state.page = "Dashboard"
+                        time.sleep(2)
                         st.rerun()
                     else:
                         st.error("Username/Password salah!")
     with colPass:
-        if st.button("Lupa Password", key='lupa_password'):
-            go_to("lupa_password")
-            st.rerun()
+        st.button("Lupa Password", key='lupa_password', 
+                  on_click=go_to, args=("lupa_password",))
         
 def register_page():
     st.title("Form Registrasi")
@@ -139,33 +167,23 @@ def register_page():
                 return False
 
         # Fase 2 : validasi ke database
-        # koneksi database |users|
         with get_connection() as conn:
             with conn.cursor() as c:
-                c.execute("""
-                    SELECT 1 FROM users 
-                    WHERE id=%s OR username=%s OR email=%s
-                    LIMIT 1
-                    """, (no_id, username, email))
+                c.execute(st.secrets['query']['register_check'], 
+                          (no_id, username, email))
                 if c.fetchone():
                     st.error("❌ Nomor ID, Username, atau Email sudah terdaftar!")
                     return False
                 else :
                 # Jika proses check valid
-                    c.execute("""
-                        INSERT INTO users (id, email, username, password, role)
-                        VALUES (%s, %s, %s, %s, %s)
-                        """, (no_id, email, username, hash_password(password_b), role))
+                    c.execute(st.secrets['query']['register_addUser'], 
+                              (no_id, email, username, hash_password(password_b), role))
                     if role == "mahasiswa":
-                        c.execute("""
-                            INSERT INTO mahasiswa (Nama, username, NIM, email, Status)
-                            VALUES (%s, %s, %s, %s, %s)
-                            """, (nama, username, no_id, email, role))
+                        c.execute(st.secrets['query']['register_addMahasiswa'], 
+                                  (nama, username, no_id, email, role))
                     elif role == "dosen":
-                        c.execute("""
-                            INSERT INTO dosen (Nama, NIP, username, email, Status)
-                            VALUES (%s, %s, %s, %s, %s)
-                            """, (nama, no_id, username, email, role))
+                        c.execute(st.secrets['query']['register_addDosen'], 
+                                  (nama, no_id, username, email, role))
                     conn.commit()
                     return True
         
@@ -174,8 +192,8 @@ def register_page():
         no_id = st.text_input(label = "Nomor Identitas (NIM atau NIP)")
         email = st.text_input(label = "Email", placeholder = "Harus Email Unimed (contoh : xxx@mhs.unimed.ac.id)")
         username = st.text_input(label = "Username", placeholder = "Maksimal 10 karakter")
-        password_a = st.text_input(label = "password baru", type = "password")
-        password_b = st.text_input(label = "konfirmasi password ", type = "password")
+        password_a = st.text_input(label = "password", type = "password")
+        password_b = st.text_input(label = "konfirmasi password", type = "password")
         role = st.selectbox(label = "Mendaftar sebagai", options=["mahasiswa", "dosen"])
 
         submitted = st.form_submit_button("Register")
@@ -184,7 +202,7 @@ def register_page():
         if register_check():
             st.balloons()
             st.success("✅ Akun berhasil dibuat! Silakan login.")
-   
+
 def lupa_password():
     st.button("Kembali", on_click=go_to, args=("Home",), type='primary')
 
@@ -192,17 +210,15 @@ def lupa_password():
         username = st.text_input(label="username anda")
         email = st.text_input(label="email anda")
         no_id = st.text_input(label="No.Identitas anda (NIM/NIP)")
-        
+
         # Tombol submit untuk form
         konfirmasi_id = st.form_submit_button("konfirmasi")
 
     if konfirmasi_id:
         with get_connection() as conn:
             with conn.cursor() as c:
-                c.execute("""
-                    SELECT 1 FROM users 
-                    WHERE id=%s AND username=%s AND email=%s
-                    """,(no_id, username, email))
+                c.execute(st.secrets['query']['forgetPassword_confirmID'],
+                          (no_id, username, email))
                 identitas_valid = c.fetchone()
                 if identitas_valid:
                     st.success("Identitas terkonfirmasi! Silakan ganti password.")
@@ -217,11 +233,8 @@ def lupa_password():
                             elif len(password_a) < 8:
                                 st.error("Password kurang dari 8 karakter")
                             else:
-                                c.execute("""
-                                    UPDATE users
-                                    SET password = %s
-                                    WHERE username = %s
-                                    """, (hash_password(password_b), username))
+                                c.execute(st.secrets['query']['forgetPassword_confirmPass'], 
+                                          (hash_password(password_b), username))
                                 conn.commit()
                                 st.success("Password berhasil diubah!")
                                 st.session_state.page = 'Home'
@@ -231,166 +244,113 @@ def lupa_password():
 
 # --- halaman login ---
 def Dashboard():
-    status = st.session_state.role
     # tombol logout
-    if st.button("Logout", type='primary'):
-        st.session_state.logged_in = False
-        st.session_state.username = ""
-        st.session_state.page = 'Home'
-        st.rerun()
+    with st.sidebar:
+        if st.button("Logout", type='primary'):
+            st.session_state.logged_in = False
+            st.session_state.username = ""
+            st.session_state.page = 'Home'
+            st.rerun()
 
-    # koneksi database > |datasets|users|mahasiswa|dosen|
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
             # ambil semua dataset yang pernah di upload user
-            c.execute("""
-                SELECT * FROM datasets
-                WHERE user_id = %s
-                """, (st.session_state.username,))
+            c.execute(st.secrets['query']['dashboard_showDatasets'], 
+                      (st.session_state.username,))
             datasets_all = c.fetchall()
 
-            c.execute("""
-                SELECT * FROM pertanyaan
-                WHERE user_id = %s
-                """, (st.session_state.username,))
+            c.execute(st.secrets['query']['dashboard_showPertanyaan'], 
+                      (st.session_state.username,))
             pertanyaan_all = c.fetchall()
 
-            if status == "mahasiswa":
-                tabel, columns = "mahasiswa", ["Nama", "username", "NIM", "email", "Kelas", "Status", "Prodi", "Stambuk"]
+            if st.session_state.role == "mahasiswa":
+                tabel = st.secrets['query']['dashboard_showProfilMahasiswa']
+                columns = ["Nama", "username", "NIM", "email", "Kelas", "Status", "Prodi", "Stambuk"]
             else:
-                tabel, columns = "dosen", ["NIP", "Nama", "username", "email", "Prodi", "Jabatan_fungsional",	"Status"]
+                tabel = st.secrets['query']['dashboard_showProfilDosen']
+                columns = ["NIP", "Nama", "username", "email", "Prodi", "Jabatan_fungsional",	"Status"]
 
             # ambil data dari tabel
-            c.execute(f"""
-                SELECT * FROM {tabel} 
-                WHERE username = %s
-                """, (st.session_state.username,))
+            c.execute(tabel, (st.session_state.username,))
             data = c.fetchone()
             profil = pd.DataFrame([data], columns=columns)
 
-
     st.title("Dashboard")
-    st.subheader(f"Selamat datang, {profil['Nama']}! 🎉")
-    st.write("👉 Ini adalah halaman profil anda")
+    st.subheader(f"Selamat datang, {profil['Nama'][0]}! 🎉")
+    st.write("👈 menu ada disebelah kiri 😀 tombol logout juga disebelah kiri")
 	
     # Ubah ke format vertikal
     profil_final = profil.melt(var_name="Keterangan", value_name="Isi").set_index("Keterangan")
     st.dataframe(profil_final, use_container_width=True)
 
-    col1, col2 = st.columns([3,6])
-    col1.info("update biodata disini")
-    col2.write('')
-    col2.button("Update", type='primary', on_click=go_to, args=('update_dashboard',))
+    colBio, colUpdt = st.columns([3,6])
+    colBio.info(f"##### Update Profil Disini")
+    colUpdt.write('')
+    colUpdt.button("Update", type='primary', on_click=go_to, args=('update_dashboard',))
 
     col1, col2 = st.columns([11,10])
+
     with col1:
         st.title("DATASETS")
-        for dataset in datasets_all:
-            with st.container(border=True):
-                st.markdown(f"#### 📄 {dataset['nama_data']}")
-                col3, col4, col5 = st.columns(3)
-                col3.button("✏️ UPDATE", key=f"upd_{dataset['id']}",
-                               on_click=go_to_dataset_update, 
-                               args=(dataset,))
-                col4.button("🗑️ DELETE", key=f"dlt_{dataset['id']}",
-                            on_click=go_to_dataset_delete, 
-                            args=(dataset,))
-                col5.metric("jumlah unduhan",dataset['unduh'])
+        if not datasets_all:
+            st.info("#### Eh, belum ada data ya 😳 Ayo tambahkan datasetmu! 🔥")
+            st.button(f"**Unggah Data**", type="primary", on_click=go_to, args=('dataset_upload',))
+        else : 
+            for dataset in datasets_all:
+                with st.container(height=230):
+                    with st.container(height=120, border=False):
+                        st.markdown(f"## 📄 {dataset['nama_data']}")
+                    col3, col4, col5 = st.columns(3)
+                    col3.button("✏️ UPDATE", key=f"upd_{dataset['id']}",
+                                on_click=go_to_dataset_update, 
+                                args=(dataset,))
+                    col4.button("🗑️ DELETE", key=f"dlt_{dataset['id']}",
+                                on_click=go_to_dataset_delete, 
+                                args=(dataset,))
+                    col5.metric("jumlah unduhan",dataset['unduh'])
 
     with col2:
         st.title("PERTANYAAN")
-        for pertanyaan in pertanyaan_all:
-            with st.container(border=True):
-                st.markdown(f"#### {pertanyaan['judul']}")
-                col1, col2, col3 = st.columns([2,3,3])
-                col1.button("🔎 VIEW", key=f"view_Q_{pertanyaan['id']}",
-                    on_click=go_to_komentar, args=(pertanyaan['id'],pertanyaan['judul']))
-                col3.metric("terjawab", pertanyaan['penjawab'])
-                col2.button("🗑️ DELETE", key=f"dlt_Q_{pertanyaan['id']}",
-                            on_click=go_to_pertanyaan_delete,
-                            args=(pertanyaan,))
-
+        if not pertanyaan_all:
+            st.info(f"#### Yuk, jangan cuma lihat 😅 Ajukan satu pertanyaan untuk memulai diskusi! 💡")
+            st.button(f"**klik disini**", on_click=go_to, args=('halaman_pertanyaan',), type="primary")
+        else :
+            for pertanyaan in pertanyaan_all:
+                with st.container(height=230):
+                    with st.container(height=120, border=False):
+                        st.markdown(f"#### {pertanyaan['judul']}")
+                    col1, col2, col3 = st.columns([2,3,3])
+                    col1.button("🔎 VIEW", key=f"view_Q_{pertanyaan['id']}",
+                        on_click=go_to_komentar, args=(pertanyaan['id'],pertanyaan['judul']))
+                    col3.metric("terjawab", pertanyaan['penjawab'])
+                    col2.button("🗑️ DELETE", key=f"dlt_Q_{pertanyaan['id']}",
+                                on_click=go_to_pertanyaan_delete,
+                                args=(pertanyaan,))
 
 def Datasets():
     st.title("🎉 Datasets Para AnTik")
-    st.write("""✨ Di sini kamu bisa menyimpan data apapun itu seperti hasil scrapping illegal, hasil menyelam dari website lain,
-                atau bahkan hasil dari kuesioner yang dimanipulasi 😂 dan ketika tugas berakhir data tidak dipakai lagi.
-                Daripada data dibuang begitu saja, padahal susah nyari responden atau mencari data dari web yang sesuai untuk tugas kuliah, 
-                lebih baik disimpan di sini, siapa tahu nanti bisa berguna lagi untuk mahasiswa, dosen atau penelitian lain! 📊""")
+    st.markdown(f'<div style="text-align: justify;">{caption2}</div>', unsafe_allow_html=True)
 
-    colFilter, colJudul, colTag = st.columns(3)
-    cari_filter = colFilter.selectbox("Cari berdasarkan kategori",
-						["default", "Jumlah Like Tertinggi", "Jumlah Like Terendah", "Terbaru Diunggah", "Terlama Diunggah"])
-    cari_judul = colJudul.text_input("Cari berdasarkan nama data")
-    cari_tags = colTag.multiselect(label="Cari berdasarkan tags", options=all_tags, max_selections=3, placeholder="maksimal 3 tag")
-    query = """
-			SELECT d.id,
-			d.user_id,
-			d.nama_data,
-			d.deskipsi,
-			d.file_path,
-			d.tanggal,
-			d.vote,
-			u.Nama AS author, GROUP_CONCAT(t.tag_name) AS tags
-			FROM datasets d
-			LEFT JOIN (
-			    SELECT username, Nama FROM mahasiswa
-			    UNION
-			    SELECT username, Nama FROM dosen
-			) u ON d.user_id = u.username
-			LEFT JOIN dataset_tag dt ON d.id = dt.dataset_id
-			LEFT JOIN tags t ON dt.tag_id = t.id
-			WHERE 1=1
-			"""
-    params = []
-    if cari_judul:
-        query += " AND d.nama_data LIKE %s"
-        params.append(f"%{cari_judul}%")
+    with st.sidebar.expander("Menu Halaman Datasets"):
+        cari_filter = st.selectbox("Cari berdasarkan kategori",
+                            ["Jumlah Like Terbanyak", "Jumlah Like Terendah", "Terbaru Diunggah", "Terlama Diunggah"])
+        cari_judul = st.text_input("Cari berdasarkan nama data")
+        cari_tags = st.multiselect(label="Cari berdasarkan tags", options=all_tags, max_selections=3, placeholder="maksimal 3 tag")
+        
+        query_datasets = st.secrets['query']['datasets_showAll']
+        query_datasets = ( f"{st.secrets['query']['datasets_showAll']}"
+                        + (f" {st.secrets['query']['datasets_nama']} LIKE %s" if cari_judul else "")
+                        + (f" {st.secrets['query']['datasets_tag']} IN ({','.join(['%s'] * len(cari_tags))})" if cari_tags else "")
+                        + f" {st.secrets['query']['datasets_showAll_1']} {order_mapping.get(cari_filter)}")
 
-    if cari_tags:
-        placeholders = ','.join(['%s'] * len(cari_tags))
-        query += f" AND t.tag_name IN ({placeholders})"
-        params.extend(cari_tags)
-
-    if cari_filter != "default":
-        if cari_filter == "Jumlah Like Tertinggi":
-            order_by = "d.vote DESC"
-        elif cari_filter == "Jumlah Like Terendah":
-            order_by = "d.vote ASC"
-        elif cari_filter == "Terbaru Diunggah":
-            order_by = "d.tanggal DESC"
-        elif cari_filter == "Terlama Diunggah":
-            order_by = "d.tanggal ASC"
-        else:
-            order_by = "d.vote DESC"
-    else:
-        order_by = "d.vote DESC"
-
-    query += f" GROUP BY d.id, d.user_id, d.nama_data, d.deskripsi, d.file_path, d.tanggal, d.vote ORDER BY {order_by}"
+        params = ([f"%{cari_judul}%"] if cari_judul else []) + (cari_tags or [])
 
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
-            if params:
-                c.execute(query, tuple(params))
-            else:
-                c.execute(query)
-
+            c.execute(query_datasets, tuple(params) if params else None)
             datasets_all = c.fetchall()
                 
-    total_data = len(datasets_all)
-    PER_PAGE = 8
-    total_pages = total_data // PER_PAGE
-    if total_data % PER_PAGE != 0:
-        total_pages += 1
-
-    # Pastikan minimal 1 halaman
-    if total_pages == 0:
-        total_pages = 1
-    page = st.number_input("Pilih halaman", min_value=1, max_value=total_pages, value=1, step=1)
-    start_idx = (page - 1) * PER_PAGE
-    end_idx = start_idx + PER_PAGE
-    page_data = datasets_all[start_idx:end_idx]
-
+    page_data = paginate_data(datasets_all)
     for dataset in page_data:
         with st.container(border=True):
             col1, col2 = st.columns([3, 1])
@@ -420,29 +380,44 @@ def Datasets():
         st.write("")
         st.button(f"**Unggah Data**", type="primary", on_click=go_to, args=('dataset_upload',))
 
-
 def Diskusi():
     st.title("Halaman Diskusi Para AnTik 🎉")
-    st.info(f"### tenang 🤗, kamu anonim disini 🕵️‍♂️🕵️‍♀️")
-    col1, col2 = st.columns([8,2])
-    col1.markdown("#### Ingin bertanya atau berdiskusi? tidak perlu malu...")
-    with col2:
-        st.write("")
-        st.button(f"**klik disini**", on_click=go_to, args=('halaman_pertanyaan',), type="primary")
+    st.info(f"#### tenang 🤗 tidak perlu malu, kamu anonim disini 🕵️‍♂️🕵️‍♀️")
+    st.write("")
+
+    with st.sidebar.expander("Menu Halaman Diskusi"):
+        cari_filter = st.selectbox("Cari berdasarkan kategori",
+                            ["Penjawab Terbanyak", "Penjawab Terendah", "Terbaru Diunggah", "Terlama Diunggah"])
+        cari_tanya = st.text_input("Cari berdasarkan pertanyaan")
+
+        query_pertanyaan = st.secrets['query']['diskusi_showAll']
+        query_pertanyaan = (f"{st.secrets['query']['diskusi_showAll']}"
+                            + (f" {st.secrets['query']['diskusi_judul']} LIKE %s" if cari_tanya else "")
+                            + f" ORDER BY {order_mapping.get(cari_filter)}")
+
+        params = [f"%{cari_tanya}%"] if cari_tanya else []
 
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
-            c.execute("SELECT * FROM pertanyaan")
+            c.execute(query_pertanyaan, tuple(params) if params else None)
             pertanyaan_all = c.fetchall()
 
-    for q in pertanyaan_all:
+    page_data = paginate_data(pertanyaan_all)
+    for q in page_data:
         with st.container(border=True):
             colQ,colDate = st.columns([3,1])
-            colQ.header(f"**{q['judul']}**")
-            colDate.success(f"**Diunggah pada** {q['created_at']}")
+            with colQ:
+                with st.container(height=175):
+                    st.markdown(f"## {q['judul']}")
+            colDate.success(f"**Diunggah pada** {q['tanggal']}")
             colDate.metric("jawaban", q['penjawab'])
             colQ.button("Lihat jawaban/ingin menjawab?", key=f"btn_{q['id']}",
                            on_click=go_to_komentar, args=(q['id'],q['judul'],))
+
+    col1, col2 = st.columns([6,5])
+    col1.markdown("#### Ingin bertanya atau berdiskusi?")
+    col2.write("")
+    col2.button(f"**klik disini**", on_click=go_to, args=('halaman_pertanyaan',), type="primary")
 
 # --- halaman cabang dari 4 halaman utama ---
 def update_dashboard():
@@ -502,23 +477,16 @@ def update_dashboard():
                 with get_connection() as conn:
                     with conn.cursor() as c:
                         if status == "mahasiswa":
-                            c.execute("""
-                                UPDATE mahasiswa
-                                SET Nama=%s, NIM=%s, Kelas=%s, Prodi=%s, Stambuk=%s
-                                WHERE username=%s
-                            """, (nama, nim, kelas, prodi, stambuk, st.session_state.username))
+                            c.execute(st.secrets['query']['dashboard_updtMahasiswa'], 
+                                      (nama, nim, kelas, prodi, stambuk, st.session_state.username))
                         elif status == "dosen":
-                            c.execute("""
-                                UPDATE dosen
-                                SET Nama=%s, NIP=%s, Prodi=%s, Jabatan_fungsional=%s
-                                WHERE username=%s
-                            """, (nama, nip, prodi, jabatan, st.session_state.username))
+                            c.execute(st.secrets['query']['dashboard_updtDosen'], 
+                                      (nama, nip, prodi, jabatan, st.session_state.username))
 
                         conn.commit()
-
                         st.success("Data berhasil diperbarui")
-                        time.sleep(1)
                         go_to("Dashboard")
+                        time.sleep(2)
                         st.rerun()
 
 def dataset_upload():
@@ -532,7 +500,7 @@ def dataset_upload():
             (len(nama_data) > 50,   "❌ Judul Maksimal 50 karakter!"),
             (not deskripsi,         "⚠️ Deskripsi tidak boleh kosong."),
             (file_path is None,     "⚠️ Anda belum mengunggah file dataset."),
-            (not tags,              "⚠️ tag harus dipilih minimal 1")
+            (not tags,              "❌ tag harus dipilih minimal 1")
         ]
 
         for condition, message in submit_rules:
@@ -544,29 +512,22 @@ def dataset_upload():
         if not filename.endswith((".csv", ".json", ".xlsx", ".xls")):
             st.error("❌ Format harus csv, json, xlsx atau xls")
             return False
+        
         return True
 
     with st.form(key="upload_form"):
-        nama_data = st.text_input(
-            label="Judul Dataset",
-            placeholder="Contoh: Data Penjualan Ritel Selama Pandemi (min. 50 karakter)"
-        )
-        deskripsi = st.text_area(
-            label="Deskripsi",
-            placeholder="Jelaskan secara detail tentang dataset Anda. Apa konteksnya? Apa saja isi kolomnya? Dari mana sumber datanya?",
-            height=200
-        )
-        file_path = st.file_uploader(
-            label="Unggah File Dataset Anda",
-            type=["csv", "json", "xlsx", "xls"],
-            accept_multiple_files=False
-        )
-        tags = st.multiselect(
-            label="Pilih tags yang relevan",
-            options=all_tags,
-            max_selections=3,
-            placeholder="maksimal 3 tag"
-        )
+        nama_data = st.text_input(label="Judul Dataset",
+                                  placeholder="Contoh: Data Penjualan Ritel Selama Pandemi (min. 50 karakter)")
+        deskripsi = st.text_area(label="Deskripsi",
+                                 placeholder="Jelaskan secara detail tentang dataset Anda. Apa konteksnya? Apa saja isi kolomnya? Dari mana sumber datanya?",
+                                 height=200)
+        file_path = st.file_uploader(label="Unggah File Dataset Anda",
+                                     type=["csv", "json", "xlsx", "xls"],
+                                     accept_multiple_files=False)
+        tags = st.multiselect(label="Pilih tags yang relevan",
+                              options=all_tags,
+                              max_selections=3,
+                              placeholder="maksimal 3 tag")
         
         # Tombol submit untuk form
         submitted_dataset = st.form_submit_button("Unggah Dataset")
@@ -577,27 +538,21 @@ def dataset_upload():
             with st.spinner("Mengunggah dan memproses data..."):
                 file_id = upload_to_cloudinary(file_path)
                 try:
-                    conn = get_connection()
-                    c = conn.cursor()
-                    c.execute("""
-                        INSERT INTO datasets (user_id, nama_data, deskripsi, file_path, vote)
-                        VALUES (%s, %s, %s, %s, %s)
-                        """, (st.session_state.username, nama_data, deskripsi, file_id, 0))
+                    with get_connection() as conn:
+                        with conn.cursor() as c:
+                            c.execute(st.secrets['query']['datasets_upload'], 
+                                      (st.session_state.username, nama_data, deskripsi, file_id, 0))
 
-                    dataset_id = c.lastrowid
-                    for tag_name in tags:
-                        c.execute("SELECT id FROM tags WHERE tag_name = %s", (tag_name,))
-                        tag_id = c.fetchone()
-                        c.execute("""
-                            INSERT INTO dataset_tag (dataset_id, tag_id)
-                            VALUES (%s, %s)
-                            """, (dataset_id, tag_id[0]))
-                    conn.commit()
-                    conn.close()
-                    st.success("✅ Data berhasil disimpan ke database")
-                    time.sleep(3)
-                    go_to('Datasets')
-                    st.rerun()
+                            dataset_id = c.lastrowid
+                            for tag_name in tags:
+                                c.execute(st.secrets['query']['datasets_cekTagName'], (tag_name,))
+                                tag_id = c.fetchone()
+                                c.execute(st.secrets['query']['datasets_getTagName'], (dataset_id, tag_id[0]))
+                            conn.commit()
+                            st.success("✅ Data berhasil disimpan ke database")
+                            go_to('Datasets')
+                            time.sleep(2)
+                            st.rerun()
                 
                 except Exception as e:
                     st.error(f"Terjadi kesalahan saat memproses file: {e}")
@@ -606,8 +561,20 @@ def dataset_update():
     dataset = st.session_state.dataset_update
     st.button("Kembali", on_click=go_to, args=("Dashboard", ), type='primary')
 
-    all_tags = ["Kesehatan", "Keuangan", "Pendidikan", "Teknologi", "Sains Data", "Demografi",
-                "Klasifikasi", "Regresi", "Clustering", "Spatial", "Time Series", "Inferensia"]
+    def update_check():
+        # Fase 1 : validasi ke aturan dasar
+        submit_rules = [
+            (not nama_data,         "⚠️ Judul Tidak Boleh Kosong"),
+            (len(nama_data) > 50,   "❌ Judul Maksimal 50 karakter!"),
+            (not deskripsi,         "⚠️ Deskripsi tidak boleh kosong."),
+            (not tags,              "❌ tag harus dipilih minimal 1")
+        ]
+
+        for condition, message in submit_rules:
+            if condition:
+                st.error(message)
+                return False
+        return True
 
     with st.form(key="update_form"):
         nama_data = st.text_input(
@@ -628,19 +595,23 @@ def dataset_update():
         update_data = st.form_submit_button("Perbarui Dataset")
 
     if update_data:
-        with get_connection() as conn:
-            with conn.cursor() as c:
-                c.execute("""
-                    UPDATE datasets 
-                    SET nama_data=%s, deskripsi=%s, tags=%s
-                    WHERE id=%s
-                    """, (nama_data, deskripsi, ",".join(tags), dataset["id"]))
-                conn.commit()
+        if update_check:
+            with get_connection() as conn:
+                with conn.cursor() as c:
+                    c.execute(st.secrets['query']['datasets_Update'], (nama_data, deskripsi, dataset["id"]))
+                    c.execute(st.secrets['query']['datasets_delTag'], (dataset["id"],))
+
+                    # menambahkan tag baru
+                    for tag_name in tags:
+                        c.execute(st.secrets['query']['datasets_cekTagName'], (tag_name,))
+                        tag_id = c.fetchone()
+                        c.execute(st.secrets['query']['datasets_getTagName'], (dataset['id'], tag_id[0]))
+                    conn.commit()
         
-        st.success("Dataset berhasil diperbarui!")
-        del st.session_state.dataset_update
-        go_to('Dashboard')
-        st.rerun()
+                    st.success("Dataset berhasil diperbarui!")
+                    del st.session_state.dataset_update
+                    go_to('Dashboard')
+                    st.rerun()
 
 def dataset_delete():
     dataset = st.session_state.dataset_delete
@@ -655,29 +626,27 @@ def dataset_delete():
             # Hapus database
             with get_connection() as conn:
                 with conn.cursor() as c:
-                    c.execute("DELETE FROM datasets WHERE id=%s", (dataset["id"],))
+                    c.execute(st.secrets['query']['datasets_Delete'], (dataset["id"],))
                     conn.commit()
                             
             uploader.destroy(dataset["file_path"])
-            st.success(f"Dataset {dataset['nama_data']} berhasil dihapus")
-            time.sleep(3)
+            st.success(f"Dataset {dataset['nama_data']} berhasil dihapus dari database")
         else:
             st.info("Dataset batal dihapus")
 
         # Hapus flag dan Kembali ke Dashboard
         del st.session_state.dataset_delete
         go_to('Dashboard')
+        time.sleep(2)
         st.rerun()
 
 def dataset_more():
-    dataset_id = st.session_state.get("selected_dataset_id")
+    dataset_id = st.session_state.dataset_id
 
-    conn = get_connection()
-    c = conn.cursor(dictionary=True)
-    c.execute("SELECT user_id, nama_data, file_path FROM datasets WHERE id = %s",
-              (dataset_id,))
-    dataset = c.fetchone()
-    conn.close()
+    with get_connection() as conn:
+        with conn.cursor(dictionary=True) as c:
+            c.execute(st.secrets['query']['datasets_More'], (dataset_id,))
+            dataset = c.fetchone()
 
     st.button("Kembali", on_click=go_to, args=("Datasets",), type='primary')
     st.title(f"Dataset {dataset['nama_data']}")
@@ -693,115 +662,112 @@ def dataset_more():
         elif ext.lower().endswith('.csv'):
             df = pd.read_csv(dataset['file_path'], sep=parse)
         return df, ext
-
+    
+    
     col1, col2, col3 = st.columns(3)
-    delimiter = col1.selectbox("Pilih delimiter", [",", ";", "\t"], index=0)
+    col1.write("")
+    delimiter = col1.selectbox("Pilih delimiter", [",", ";", r"\t"], index=0)
 
-    try :
-        df, file_ext = read_data(parse=delimiter)
-        page = col2.number_input("Halaman (1 halaman ada 50 data)", 
-                            min_value=1, max_value=(len(df) // 50) + 1, step=1)
+    df, file_ext = read_data(parse=delimiter)
 
-        date_col = col3.selectbox("Ubah Ke Datatime (opsional)", ["(none)"]+list(df.columns))
-        if date_col != "(none)":
-            try :
-                df[date_col] = pd.to_datetime(df[date_col].astype(str))
-            except :
-                st.warning("⚠️ Gagal parsing kolom tanggal dengan format yang dipilih.")
-        
-        # Menampilkan data per halaman
-        start_row = (page - 1) * 50
-        end_row = start_row + 50
-        st.dataframe(df.iloc[start_row:end_row], use_container_width=True)
+    col3.write("")
+    date_col = col3.selectbox("Ubah Ke Datatime (opsional)", ["(none)"]+list(df.columns))
+    if date_col != "(none)":
+        try :
+            df[date_col] = pd.to_datetime(df[date_col].astype(str))
+        except :
+            st.warning("⚠️ Gagal parsing kolom tanggal dengan format yang dipilih.")
+    
+    # Menampilkan data per halaman
+    page_data = paginate_data(df, PER_PAGE=50, container=col2)
+    st.dataframe(page_data, use_container_width=True)
 
-        data, mime = toggle_unduh(df, file_ext, dataset_id)
-        with st.container(border=True):
-            coltxt, coldown = st.columns([11,2])
-            coltxt.markdown("### Suka dengan data ini? klik untuk mengunduh")
-            coldown.download_button(
-                label="📥 unduh",
-                data=data,
-                file_name=f"{dataset['nama_data']}{file_ext}",
-                on_click=increment_unduh,
-                args=(dataset_id,dataset['user_id']),
-                mime=mime)
+    data, mime = toggle_unduh(df, file_ext)
+    with st.container(border=True):
+        coltxt, coldown = st.columns([11,2])
+        coltxt.markdown("### Suka dengan data ini? klik untuk mengunduh")
+        coldown.download_button(
+            label="📥 unduh",
+            data=data,
+            file_name=f"{dataset['nama_data']}{file_ext}",
+            on_click=increment_unduh,
+            args=(dataset_id,dataset['user_id']),
+            mime=mime)
 
-        var = st.selectbox("Pilih variabel", df.columns)
-        # Cek tipe data
-        if pd.api.types.is_numeric_dtype(df[var]):
-            # Jika numerik → histogram
-            @st.fragment
-            def var_1_grafik_num():
-                stat_num = df[var].describe()
-                cols = st.columns(4)  # 4 kolom
-                for i, (label, value) in enumerate(stat_num.items()):
-                    col = cols[i % 4]  # pindah kolom tiap index % 4
-                    col.metric(label=label, value=round(value, 3))
-
-                fig = px.histogram(df, x=var, nbins=25)
-                st.plotly_chart(fig, use_container_width=True)
-            var_1_grafik_num()
-
-        else:
-            @st.fragment
-            def var_1_grafik_cat():
-                colCat = st.columns([10,2])
-                with colCat[0]:
-                    # Jika kategorik → bar plot
-                    counts = df[var].value_counts().reset_index()
-                    counts.columns = [var, 'Jumlah']
-
-                    fig = px.bar(counts,
-                                x=var,
-                                y='Jumlah')
-                    st.plotly_chart(fig, use_container_width=True)
-
-                with colCat[1]:
-                    stat_cols_1 = st.columns(1)
-                    stat_cols_2 = st.columns(1)
-                    stat_cols_3 = st.columns(1)
-                    stat_cols_4 = st.columns(1)
-                    stat_col = stat_cols_1 + stat_cols_2 + stat_cols_3 + stat_cols_4
-                    cat_stats = pd.DataFrame({"total": [len(df[var])],
-                                            "jumlah kategori": [df[var].nunique()],
-                                            "top frekuensi": counts[var].iloc[0],
-                                            "top kategori": counts['Jumlah'].iloc[0]})
-                    for col_name, col_value in cat_stats.iloc[0].items():
-                        col = stat_col.pop(0)
-                        col.metric(label=col_name, value=col_value, delta=None)
-            var_1_grafik_cat()
-        
+    var = st.selectbox("Pilih variabel", df.columns)
+    # Cek tipe data
+    if pd.api.types.is_numeric_dtype(df[var]):
+        # Jika numerik → histogram
         @st.fragment
-        def var_2_grafik():
-            colA, colB = st.columns(2)
-            x_axis = colA.selectbox("Pilih kolom X", df.columns)
-            y_axis = colB.selectbox("Pilih kolom Y", df.columns)
+        def var_1_grafik_num():
+            stat_num = df[var].describe()
+            cols = st.columns(4)  # 4 kolom
+            for i, (label, value) in enumerate(stat_num.items()):
+                col = cols[i % 4]  # pindah kolom tiap index % 4
+                col.metric(label=label, value=round(value, 3))
 
-            colGraf, colOpsi = st.columns([12,3])
-            # Step 4: Pilih jenis grafik
-            with colOpsi:
-                with st.container(border=True):
-                    st.write("")
-                    chart_type = st.radio("Pilih jenis grafik 2 variabel", ["Line", "Scatter"])
-                    color_col = st.selectbox("Pilih kolom untuk warna (opsional)", [None] + list(df.columns))
+            fig = px.histogram(df, x=var, nbins=25)
+            st.plotly_chart(fig, use_container_width=True)
+        var_1_grafik_num()
 
-            with colGraf:
-                fig = None
-                if chart_type == "Line":
-                    fig = px.line(df, x=x_axis, y=y_axis, color=color_col if color_col else None)
-                elif chart_type == "Scatter":
-                    fig = px.scatter(df, x=x_axis, y=y_axis, color=color_col if color_col else None)
-                elif chart_type == "Histogram (sumbu x)":
-                    fig = px.histogram(df, x=x_axis, nbins=32, color=color_col if color_col else None)
-                
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True)
-        var_2_grafik()
-    except :
-        st.error("silahkan pilih delimiter yang ada agar tidak error")
+    else:
+        @st.fragment
+        def var_1_grafik_cat():
+            colCat = st.columns([10,2])
+            with colCat[0]:
+                # Jika kategorik → bar plot
+                counts = df[var].value_counts().reset_index()
+                counts.columns = [var, 'Jumlah']
+
+                fig = px.bar(counts,
+                            x=var,
+                            y='Jumlah')
+                st.plotly_chart(fig, use_container_width=True)
+
+            with colCat[1]:
+                stat_cols_1 = st.columns(1)
+                stat_cols_2 = st.columns(1)
+                stat_cols_3 = st.columns(1)
+                stat_cols_4 = st.columns(1)
+                stat_col = stat_cols_1 + stat_cols_2 + stat_cols_3 + stat_cols_4
+                cat_stats = pd.DataFrame({"total": [len(df[var])],
+                                        "jumlah kategori": [df[var].nunique()],
+                                        "top frekuensi": counts[var].iloc[0],
+                                        "top kategori": counts['Jumlah'].iloc[0]})
+                for col_name, col_value in cat_stats.iloc[0].items():
+                    col = stat_col.pop(0)
+                    col.metric(label=col_name, value=col_value, delta=None)
+        var_1_grafik_cat()
+    
+    @st.fragment
+    def var_2_grafik():
+        colA, colB = st.columns(2)
+        x_axis = colA.selectbox("Pilih kolom X", df.columns)
+        y_axis = colB.selectbox("Pilih kolom Y", df.columns)
+
+        colGraf, colOpsi = st.columns([12,3])
+        # Step 4: Pilih jenis grafik
+        with colOpsi:
+            with st.container(border=True):
+                st.write("")
+                chart_type = st.radio("Pilih jenis grafik 2 variabel", ["Line", "Scatter"])
+                color_col = st.selectbox("Pilih kolom untuk warna (opsional)", [None] + list(df.columns))
+
+        with colGraf:
+            fig = None
+            if chart_type == "Line":
+                fig = px.line(df, x=x_axis, y=y_axis, color=color_col if color_col else None)
+            elif chart_type == "Scatter":
+                fig = px.scatter(df, x=x_axis, y=y_axis, color=color_col if color_col else None)
+            elif chart_type == "Histogram (sumbu x)":
+                fig = px.histogram(df, x=x_axis, nbins=32, color=color_col if color_col else None)
+            
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+    var_2_grafik()
 
 @st.fragment
-def toggle_unduh(df, file_ext, dataset_id):
+def toggle_unduh(df, file_ext):
     if file_ext == '.csv':
         buf = io.StringIO()
         df.to_csv(buf, index=False)
@@ -825,32 +791,28 @@ def increment_unduh(dataset_id, pemilik):
     if st.session_state.username != pemilik:
         with get_connection() as conn:
             with conn.cursor() as c:
-                c.execute("UPDATE datasets SET unduh = unduh + 1 WHERE id=%s", (dataset_id,))
+                c.execute(st.secrets['query']['datasets_unduh'], (dataset_id,))
                 conn.commit()
     else :
-        st.info("Kamu Masih Bisa Unduh Tapi Jumlah Unduh Tidak Bertambah Karena Mengunduh Datamu Sendiri")
+        st.info("Kamu Masih Bisa Unduh Tapi Jumlah Unduh Tidak Bertambah Karena Mengunduh Data milik mu Sendiri")
 
 def toggle_like(user_id, dataset_id):
     with get_connection() as conn:
         with conn.cursor() as c:
-            c.execute("""
-                SELECT liked FROM votes 
-                WHERE username=%s AND dataset_id=%s
-                """, (user_id, dataset_id))
+            c.execute(st.secrets['query']['datasets_checkVote'], (user_id, dataset_id))
             row = c.fetchone()
             if row is None:
                 # belum ada → insert baru dengan like=True
-                c.execute("INSERT INTO votes (username, dataset_id, liked) VALUES (%s, %s, %s)",
-                        (user_id, dataset_id, True))
-                c.execute("UPDATE datasets SET vote = vote + 1 WHERE id=%s", (dataset_id,))
+                c.execute(st.secrets['query']['voters_new'], (user_id, dataset_id, True))
+                c.execute(st.secrets['query']['datasets_updtVote'], (dataset_id,))
             else:
                 liked = row[0]
                 if liked:  # kalau sudah like → batalkan
-                    c.execute("UPDATE votes SET liked=FALSE WHERE username=%s AND dataset_id=%s", (user_id, dataset_id))
-                    c.execute("UPDATE datasets SET vote = vote - 1 WHERE id=%s", (dataset_id,))
+                    c.execute(st.secrets['query']['voters_unlike'], (user_id, dataset_id))
+                    c.execute(st.secrets['query']['datasets_undoVote'], (dataset_id,))
                 else:      # kalau belum like → like
-                    c.execute("UPDATE votes SET liked=TRUE WHERE username=%s AND dataset_id=%s", (user_id, dataset_id))
-                    c.execute("UPDATE datasets SET vote = vote + 1 WHERE id=%s", (dataset_id,))
+                    c.execute(st.secrets['query']['voters_like'], (user_id, dataset_id))
+                    c.execute(st.secrets['query']['datasets_updtVote'], (dataset_id,))
             conn.commit()
 
 def halaman_pertanyaan():
@@ -867,15 +829,15 @@ def halaman_pertanyaan():
         submitted_pertanyaan = st.form_submit_button("Unggah pertanyaan")
     
     if submitted_pertanyaan:
-        conn = get_connection()
-        c = conn.cursor()
-        c.execute("INSERT INTO pertanyaan (user_id, judul, penjawab) VALUES (%s, %s, %s)", 
-                (st.session_state.username, pertanyaan, 0))
-        conn.commit()
-        conn.close()
+        with get_connection() as conn:
+            with conn.cursor() as c:
+                c.execute(st.secrets['query']['diskusi_addPertanyaan'], 
+                          (st.session_state.username, pertanyaan, 0))
+                conn.commit()
+
         st.success("✅ berhasil diunggah")
-        time.sleep(2)
         go_to("Diskusi")
+        time.sleep(2)
         st.rerun()
 
 def komentar_pertanyaan():
@@ -886,30 +848,41 @@ def komentar_pertanyaan():
 
     with get_connection() as conn:
         with conn.cursor(dictionary=True) as c:
-            c.execute("SELECT * FROM komentar WHERE pertanyaan_id = %s",(q_id,))
+            c.execute(st.secrets['query']['komentar_showAll'], (q_id,))
             jawaban_all = c.fetchall()
     
             st.title(q_judul)
             for Ans in jawaban_all:
                 with st.container(border=True):
-
                     edit_key = f"edit_mode_{Ans['id']}"
                     if edit_key not in st.session_state:
                         st.session_state[edit_key] = False
 
                     colA, colDate = st.columns([8,3])
-                    colDate.success(f"**Diunggah pada** {Ans['created_at']}")
+                    colDate.success(f"**Diunggah pada** {Ans['tanggal']}")
                     if Ans['user_id'] == st.session_state.username :
                         colEdit, colDelete = colDate.columns([3,4])
                         if colEdit.button("✏️ Edit", key=f"edit_{Ans['id']}"):
                             st.session_state[edit_key] = True
                             st.session_state[f"text_{Ans['id']}"] = Ans['komentar']
+
+                        delete_confirm_key = f"confirm_delete_{Ans['id']}"
                         if colDelete.button("🗑️ Delete", key=f'delete_{Ans["id"]}'):
-                            c.execute("DELETE FROM komentar WHERE id=%s", (Ans['id'],))
-                            c.execute("UPDATE pertanyaan SET penjawab = penjawab - 1 WHERE id=%s", (q_id,))
-                            conn.commit()
-                            st.success("✅ Jawaban berhasil dihapus")
-                            st.rerun()
+                            st.session_state[delete_confirm_key] = True
+
+                        if st.session_state.get(delete_confirm_key, False):
+                            st.warning("Apakah kamu yakin ingin menghapus komentar ini?")
+                            confirm_col, cancel_col = st.columns([1,1])
+                            if confirm_col.button("✅ Ya, hapus", key=f"confirm_yes_{Ans['id']}"):
+                                c.execute(st.secrets['query']['komentar_Delete'], (Ans['id'],))
+                                c.execute(st.secrets['query']['pertanyaan_undoPenjawab'], (q_id,))
+                                conn.commit()
+                                st.success("✅ Jawaban berhasil dihapus")
+                                st.session_state[delete_confirm_key] = False
+                                st.rerun()
+                            if cancel_col.button("❌ Batal", key=f"confirm_no_{Ans['id']}"):
+                                st.session_state[delete_confirm_key] = False
+                                st.rerun()
 
                     if st.session_state[edit_key]:
                         new_text = colA.text_area("Edit jawaban:", value=st.session_state[f"text_{Ans['id']}"],
@@ -917,7 +890,7 @@ def komentar_pertanyaan():
                         save_col, cancel_col = colA.columns(2)
                         if save_col.button("💾 Simpan", key=f"save_{Ans['id']}"):
                             if new_text.strip():
-                                c.execute("UPDATE komentar SET komentar=%s WHERE id=%s", (new_text, Ans['id']))
+                                c.execute(st.secrets['query']['komentar_Update'], (new_text, Ans['id']))
                                 conn.commit()
                                 st.success("✅ Jawaban berhasil diperbarui")
                                 st.session_state[edit_key] = False
@@ -939,9 +912,8 @@ def komentar_pertanyaan():
                 if not jawaban.strip():  # kosong atau hanya spasi
                     st.error("❌ Jawaban tidak boleh kosong!")
                 else:
-                    c.execute("""INSERT INTO komentar (pertanyaan_id, user_id, komentar)
-                            VALUES (%s, %s, %s)""",(q_id, st.session_state.username, jawaban))
-                    c.execute("UPDATE pertanyaan SET penjawab = penjawab + 1 WHERE id=%s", (q_id,))
+                    c.execute(st.secrets['query']['komentar_Add'], (q_id, st.session_state.username, jawaban))
+                    c.execute(st.secrets['query']['pertanyaan_updtPenjawab'], (q_id,))
                     conn.commit()
                     # proses simpan jawaban
                     st.success("Jawaban berhasil dikirim!")
@@ -961,7 +933,7 @@ def pertanyaan_delete():
             # Hapus database
             with get_connection() as conn:
                 with conn.cursor() as c:
-                    c.execute("DELETE FROM pertanyaan WHERE id=%s", (pertanyaan["id"],))
+                    c.execute(st.secrets['query']['pertanyaan_Delete'], (pertanyaan["id"],))
                     conn.commit()
             st.success(f"pertanyaan anda berhasil dihapus")
         else:
@@ -969,7 +941,8 @@ def pertanyaan_delete():
 
         # Hapus flag dan Kembali ke Dashboard
         del st.session_state.pertanyaan_delete
-        st.session_state.page = 'Dashboard'
+        go_to('Dashboard')
+        time.sleep(2)
         st.rerun()
 
 # --- Streamlit app ---
@@ -980,54 +953,51 @@ def main():
 
         if st.session_state.page in login_menu:
             with st.sidebar:
-                st.header(f"Selamat Datang, {st.session_state.username}!")
-                choice = st.sidebar.selectbox(
-                    "Pilih Menu", 
-                    login_menu, 
-                    index=login_menu.index(st.session_state.page),
-                    key="navigation_choice"
-                )
+                st.header("Apa yang kamu butuhkan?")
+
+                choice = st.selectbox(
+                    "Menu Utama",
+                    login_menu,
+                    index=login_menu.index(st.session_state.get("navigation_choice", st.session_state.page)),
+                    key="navigation_choice")
 
                 if choice != st.session_state.page:
                     go_to(choice)
 
-        if st.session_state.page == "Dashboard":
-            Dashboard()
-        elif st.session_state.page == "Datasets":
-            Datasets()
-        elif st.session_state.page == "dataset_upload":
-            dataset_upload()
-        elif st.session_state.page == "dataset_update":
-            dataset_update()
-        elif st.session_state.page == "dataset_delete":
-            dataset_delete()
-        elif st.session_state.page == 'dataset_more':
-            dataset_more()
+        halaman_login = {
+            "Dashboard": Dashboard,
+            "Datasets": Datasets,
+            "dataset_upload": dataset_upload,
+            "dataset_update": dataset_update,
+            "dataset_delete": dataset_delete,
+            "dataset_more": dataset_more,
+            "Diskusi": Diskusi,
+            "halaman_pertanyaan": halaman_pertanyaan,
+            "komentar_pertanyaan": komentar_pertanyaan,
+            "pertanyaan_delete": pertanyaan_delete,
+            "update_dashboard": update_dashboard
+        }
 
-        elif st.session_state.page == 'Diskusi':
-            Diskusi()
-        elif st.session_state.page == 'halaman_pertanyaan':
-            halaman_pertanyaan()
-        elif st.session_state.page == 'komentar_pertanyaan':
-            komentar_pertanyaan()
-        elif st.session_state.page == 'pertanyaan_delete':
-            pertanyaan_delete()
-        elif st.session_state.page == 'update_dashboard':
-            update_dashboard()
+        func = halaman_login.get(st.session_state.page)
+        if func:
+            func()
 
 
     # halaman utama
     else:
-        if st.session_state.page == 'Home':
-            home_page()
-        elif st.session_state.page == 'Login':
-            login_page()
-        elif st.session_state.page == 'Register':
-            register_page()
-        elif st.session_state.page == 'lupa_password':
-            lupa_password()
+        st.session_state.get("page", "Home")
+
+        halaman_utama = {
+            'Home': home_page,
+            'Login': login_page,
+            'Register': register_page,
+            'lupa_password': lupa_password
+        }
+
+        func = halaman_utama.get(st.session_state.page)
+        if func:
+            func()
 
 if __name__ == "__main__":
     main()
-
 
