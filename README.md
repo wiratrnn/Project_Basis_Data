@@ -1,4 +1,4 @@
-#### link : https://projectbasisdata.stremlit.app
+#### link : https://projectbasisdata.streamlit.app
 
 ## 🚀 Cara Menjalankan Aplikasi
 
@@ -10,19 +10,19 @@ git clone https://github.com/wiratrnn/Project_Basis_Data.git
 cd Project_Basis_Data
 ```
 
-2️⃣ Buat Virtual Environment
+### 2️⃣ Buat Virtual Environment
 ```bash
 python -m venv venv
 
 venv\Scripts\activate
 ```
 
-3️⃣ Install Dependensi
+### 3️⃣ Install Dependensi
 ```bash
 pip install -r requirements.txt
 ```
 
-4️⃣ Jalankan Aplikasi Streamlit
+### 4️⃣ Jalankan Aplikasi Streamlit
 ```bash
 streamlit run Project_BD.py
 ```
