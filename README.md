@@ -1,3 +1,5 @@
+#### link : https://projectbasisdata.stremlit.app
+
 ## 🚀 Cara Menjalankan Aplikasi
 
 ### 1️⃣ Clone Repository
